@@ -6,71 +6,53 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// 提供前端頁面
+let messages = []; // 用來儲存聊天室訊息
+
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
-    <html>
+    <html lang="zh-TW">
     <head>
+      <meta charset="UTF-8">
       <title>即時聊天室</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        #messages { list-style-type: none; margin: 0; padding: 0; }
-        #messages li { padding: 5px 10px; background: #f3f3f3; margin: 5px 0; border-radius: 5px; }
-        #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
-        #input { border: none; padding: 0 1rem; flex: 1; border-radius: 2rem; margin: 0.25rem; }
-        #input:focus { outline: none; }
-        #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
-        #messages { margin-bottom: 40px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f6f6f6;}
+        #chat-container { max-width: 600px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column;}
+        #messages { flex: 1; overflow-y: auto; padding: 10px; margin: 0; list-style: none;}
+        #messages li { background: #fff; margin-bottom: 8px; padding: 10px; border-radius: 8px; word-break: break-all;}
+        #form { display: flex; padding: 10px; background: #eee; }
+        #input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; font-size: 16px;}
+        #form button, #clearBtn { margin-left: 8px; border: none; background: #007bff; color: #fff; border-radius: 20px; padding: 10px 16px; font-size: 16px;}
+        #form button:active, #clearBtn:active { background: #0056b3;}
+        #clearBtn { position: fixed; top: 10px; right: 10px; z-index: 100; }
+        @media (max-width: 600px) {
+          #chat-container { height: 100dvh; }
+          #clearBtn { top: 60px; right: 10px; }
+        }
       </style>
     </head>
     <body>
-      <h1>即時聊天室</h1>
-      <ul id="messages"></ul>
-      <form id="form" action="">
-        <input id="input" autocomplete="off" placeholder="輸入訊息..." /><button>送出</button>
-      </form>
+      <div id="chat-container">
+        <button id="clearBtn">清空聊天室</button>
+        <ul id="messages"></ul>
+        <form id="form" autocomplete="off">
+          <input id="input" placeholder="輸入訊息..." autocomplete="off" />
+          <button type="submit">送出</button>
+        </form>
+      </div>
       <script src="/socket.io/socket.io.js"></script>
       <script>
-        var socket = io();
-        var messages = document.getElementById('messages');
-        var form = document.getElementById('form');
-        var input = document.getElementById('input');
+        const socket = io();
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+        const clearBtn = document.getElementById('clearBtn');
 
-        form.addEventListener('submit', function(e) {
-          e.preventDefault();
-          if (input.value) {
-            socket.emit('chat message', input.value);
-            input.value = '';
-          }
-        });
+        // 自動滾動到底部
+        function scrollToBottom() {
+          messages.scrollTop = messages.scrollHeight;
+        }
 
-        socket.on('chat message', function(msg) {
-          var item = document.createElement('li');
-          item.textContent = msg;
-          messages.appendChild(item);
-          window.scrollTo(0, document.body.scrollHeight);
-        });
-      </script>
-    </body>
-    </html>
-  `);
-});
-
-// Socket.io 連線處理
-io.on('connection', (socket) => {
-  console.log('用戶已連接');
-  
-  socket.on('chat message', (msg) => {
-    io.emit('chat message', msg);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('用戶已離線');
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`伺服器運行在 port ${PORT}`);
-});
+        // 新增訊息到畫面
+        function addMessage(msg) {
