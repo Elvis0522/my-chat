@@ -56,3 +56,71 @@ app.get('/', (req, res) => {
 
         // 新增訊息到畫面
         function addMessage(msg) {
+          const item = document.createElement('li');
+          item.textContent = msg;
+          messages.appendChild(item);
+          scrollToBottom();
+        }
+
+        // 送出訊息
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          if (input.value.trim()) {
+            socket.emit('chat message', input.value.trim());
+            input.value = '';
+          }
+        });
+
+        // 接收訊息
+        socket.on('chat message', function(msg) {
+          addMessage(msg);
+        });
+
+        // 初次連線時取得全部訊息
+        socket.on('init messages', function(msgs) {
+          messages.innerHTML = '';
+          msgs.forEach(addMessage);
+          scrollToBottom();
+        });
+
+        // 清空聊天室
+        clearBtn.addEventListener('click', function() {
+          if(confirm('確定要清空聊天室嗎？')) {
+            socket.emit('clear chat');
+          }
+        });
+
+        socket.on('clear chat', function() {
+          messages.innerHTML = '';
+        });
+
+        // 自動聚焦輸入框
+        input.focus();
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Socket.io 處理
+io.on('connection', (socket) => {
+  // 初次連線時傳送現有訊息
+  socket.emit('init messages', messages);
+
+  // 收到新訊息
+  socket.on('chat message', (msg) => {
+    messages.push(msg);
+    io.emit('chat message', msg);
+  });
+
+  // 收到清空聊天室指令
+  socket.on('clear chat', () => {
+    messages = [];
+    io.emit('clear chat');
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log('Server running on port', PORT);
+});
